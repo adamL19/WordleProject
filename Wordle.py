@@ -30,11 +30,16 @@ class Wordle:
         with open ("valid_guesses.csv", 'r') as f:
             lines = f.read().splitlines()
             
-            if len(guess) != 5:
-                raise LengthWordException("Use a 5 letter word")
+        with open ("valid_solutions.csv", 'r') as f:
+            lines2 = f.read().splitlines()
+
+        lines.extend(lines2)
             
-            if guess not in lines:
-                raise InvalidWordException("Use a real word")
+        if len(guess) != 5:
+            raise LengthWordException("Use a 5 letter word")
+            
+        if guess not in lines:
+            raise InvalidWordException("Use a real word")
 
     #reads data and picks a valid solution
     #sets solution as string
@@ -51,7 +56,7 @@ class Wordle:
     def startGame(self):
         self.generateSolution()
 
-        print("To go to menu, type menu")
+        print("\nTo go to menu, type menu")
         spaces = "__ __ __ __ __"
         print(spaces)
         spaces = spaces.split(" ")
@@ -77,7 +82,7 @@ class Wordle:
             singleResult = self.singleCheck(guess)
             #check
             if singleResult == "win":
-                print(f"{guess} is the correct word!")
+                print(f"\n Correct!, {guess} is the correct word!")
                 return "win"
             
             rightSpot, wrongSpot = singleResult
@@ -86,10 +91,13 @@ class Wordle:
                 spaces[index] = letter
 
             stringSpaces = " ".join(spaces)
-            print(f"{stringSpaces}\nWrong postion: {wrongSpot}")
+            print(f"{stringSpaces}\nWrong postions: {wrongSpot}")
+
+            spaces = ["__", "__", "__", "__", "__"]
             
             attempts += 1
         #if while loop left, return lose
+        print(f"\nThe word was {self.solution}")
         return "lose"
     
     #check guess with solution, returns True
