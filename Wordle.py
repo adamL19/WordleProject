@@ -23,7 +23,7 @@ class Wordle:
             Wordle.HighestStreak = self.streak
         
     def printHighscore(self):
-        print(f"Highest streak: {self.HighestStreak}")
+        print(f"Highest streak: {self.HighestStreak}\n")
     
     #checks if word is 5 letters OR in word list 
     def validGuess(self, guess): 
@@ -55,6 +55,7 @@ class Wordle:
     #restarts lost to reset streak in menu
     def startGame(self):
         self.generateSolution()
+        alphabet = set("abcdefghijklmnopqrstuvwxyz")
 
         print("\nTo go to menu, type menu")
         spaces = "__ __ __ __ __"
@@ -63,7 +64,11 @@ class Wordle:
         
         attempts = 1
         while attempts < 7:
-            guess = input(f"\n\n [{attempts}] Your guess: ")
+            print("\n\nUsable Letters: ", end=" ")
+            for letter in sorted(alphabet):
+                print(letter, end=' ')
+            
+            guess = input(f"\n [{attempts}] Your guess: ")
 
             if guess == 'menu':
                 #Make sure highscore is updated
@@ -78,7 +83,7 @@ class Wordle:
                 print("Error:", e)
                 continue
                 #gets a new input and doesn't use 1 of 6 guesses
-            
+
             singleResult = self.singleCheck(guess)
             #check
             if singleResult == "win":
@@ -86,6 +91,10 @@ class Wordle:
                 return "win"
             
             rightSpot, wrongSpot = singleResult
+
+            for letter in guess:
+                if letter not in rightSpot and letter not in wrongSpot:
+                    alphabet.discard(letter)
 
             for letter, index in rightSpot.items():
                 spaces[index] = letter
@@ -97,7 +106,7 @@ class Wordle:
             
             attempts += 1
         #if while loop left, return lose
-        print(f"\nThe word was {self.solution}")
+        print(f"\n\nThe word was {self.solution}")
         return "lose"
     
     #check guess with solution, returns True
