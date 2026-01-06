@@ -1,3 +1,6 @@
+'''Contains code for Unlimited Version, found on the menu
+    Has the wordle checking function which will be used in other modules as well
+    holds highscore (highest streak)'''
 import random
 
 class InvalidWordException(Exception):
@@ -6,21 +9,26 @@ class InvalidWordException(Exception):
 class LengthWordException(Exception):
     pass
 
+
 class Wordle:
     HighestStreak = 0
     def __init__(self):
         self.streak = 0
         self.solution = None
 
+
     def addToStreak(self):
         self.streak += 1
     
+
     def resetStreak(self):
         self.streak = 0
     
+
     def updateHighscore(self):
         if self.streak > Wordle.HighestStreak:
             Wordle.HighestStreak = self.streak
+        
         
     def printHighscore(self):
         print(f"Highest streak: {self.HighestStreak}\n")
@@ -100,7 +108,7 @@ class Wordle:
                 spaces[index] = letter
 
             stringSpaces = " ".join(spaces)
-            print(f"{stringSpaces}\nWrong postions: {wrongSpot}")
+            print(f"\n{stringSpaces}\nWrong postions: {wrongSpot}")
 
             spaces = ["__", "__", "__", "__", "__"]
             

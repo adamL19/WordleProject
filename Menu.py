@@ -1,4 +1,5 @@
 from Wordle import *
+from PreviousWordle import *
 def welcome():
     print("\nWelcome to Wordle Expansion. Please choose what you want to play:")
     print("\n  Previous Wordles (1)")
@@ -19,7 +20,7 @@ def __main__():
 
             while True:
                 result = w.startGame()
-                #updates based on return value of startGame() [not finished]
+                #updates based on return value of startGame()
                 if result == "win":
                     w.addToStreak()
                     w.updateHighscore()
@@ -33,8 +34,17 @@ def __main__():
             answer = welcome()
 
         elif answer == '1':
-            pass
-        
+            pw = PreviousWordle()
+            pw.createCalendar()
+            print(pw)
+
+            month = input("Enter month (e.g. December): ")
+            year = int(input("Enter year: "))
+
+            print(pw.printWordleMonth(month, year))
+            input("Press Enter to return to menu...")
+            answer = welcome()
+
         else:
             print("Please choose an option from the menu")
 
