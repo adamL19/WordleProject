@@ -1,160 +1,114 @@
-'''Contains code for Unlimited Version, found on the menu
-    Has the wordle checking function which will be used in other modules as well
-    holds highscore (highest streak)'''
+"""
+Wordle.py
+Core game logic: word validation, solution generation, and guess checking.
+Used by both Unlimited Mode and Previous Wordle Mode.
+"""
 import random
+import os
+
 
 class InvalidWordException(Exception):
     pass
+
 
 class LengthWordException(Exception):
     pass
 
 
 class Wordle:
-    HighestStreak = 0
+    """Handles word loading, validation, and guess evaluation."""
+
     def __init__(self):
-        self.streak = 0
         self.solution = None
+        self._valid_words = None  # cached word set
 
+    # ------------------------------------------------------------------
+    # Word loading
+    # ------------------------------------------------------------------
 
-    def addToStreak(self):
-        self.streak += 1
-    
+    def _load_words(self):
+        """Load and cache all valid words (guesses + solutions)."""
+        if self._valid_words is not None:
+            return self._valid_words
 
-    def resetStreak(self):
-        self.streak = 0
-    
+        base = os.path.dirname(os.path.abspath(__file__))
+        words = set()
 
-    def updateHighscore(self):
-        if self.streak > Wordle.HighestStreak:
-            Wordle.HighestStreak = self.streak
-        
-        
-    def printHighscore(self):
-        print(f"Highest streak: {self.HighestStreak}\n")
-    
-    #checks if word is 5 letters OR in word list 
-    def validGuess(self, guess): 
-        with open ("valid_guesses.csv", 'r') as f:
-            lines = f.read().splitlines()
-            
-        with open ("valid_solutions.csv", 'r') as f:
-            lines2 = f.read().splitlines()
+        for fname in ("valid_guesses.csv", "valid_solutions.csv"):
+            path = os.path.join(base, fname)
+            with open(path, "r") as f:
+                for line in f:
+                    w = line.strip().lower()
+                    if w:
+                        words.add(w)
 
-        lines.extend(lines2)
-            
+        self._valid_words = words
+        return words
+
+    def _load_solutions(self):
+        """Return list of valid solution words."""
+        base = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base, "valid_solutions.csv")
+        with open(path, "r") as f:
+            return [line.strip().lower() for line in f if line.strip()]
+
+    # ------------------------------------------------------------------
+    # Game operations
+    # ------------------------------------------------------------------
+
+    def generateSolution(self):
+        """Pick a random word from the solutions list."""
+        solutions = self._load_solutions()
+        self.solution = random.choice(solutions)
+
+    def setSolution(self, word: str):
+        """Set a specific solution (used by Previous Wordle mode)."""
+        self.solution = word.lower()
+
+    def validGuess(self, guess: str):
+        """Raise an exception if the guess is not valid."""
+        guess = guess.strip().lower()
         if len(guess) != 5:
-            raise LengthWordException("Use a 5 letter word")
-            
-        if guess not in lines:
-            raise InvalidWordException("Use a real word")
+            raise LengthWordException("Word must be 5 letters.")
+        if guess not in self._load_words():
+            raise InvalidWordException("Not a valid word.")
 
-    #reads data and picks a valid solution
-    #sets solution as string
-    def generateSolution(self): 
-        with open("valid_solutions.csv", 'r') as f:
-            
-            lines = f.read().splitlines()
-            self.solution = lines[random.randrange(0, len(lines))]
-    
-    #will run 6 times, one for each guess
-    #generates the solution
-    #returns win to add to streak in menu
-    #restarts lost to reset streak in menu
-    def startGame(self):
-        self.generateSolution()
-        alphabet = set("abcdefghijklmnopqrstuvwxyz")
+    def singleCheck(self, guess: str):
+        """
+        Evaluate a guess against self.solution.
 
-        print("\nTo go to menu, type menu")
-        spaces = "__ __ __ __ __"
-        print(spaces)
-        spaces = spaces.split(" ")
-        
-        attempts = 1
-        while attempts < 7:
-            print("\n\nUsable Letters: ", end=" ")
-            for letter in sorted(alphabet):
-                print(letter, end=' ')
-            
-            guess = input(f"\n [{attempts}] Your guess: ")
+        Returns:
+            "win"  — if guess == solution
+            list of (letter, index, status) tuples where status is:
+                "correct"  — right letter, right position  (green)
+                "present"  — right letter, wrong position  (yellow)
+                "absent"   — letter not in word            (grey)
+        """
+        guess = guess.strip().lower()
 
-            if guess == 'menu':
-                #Make sure highscore is updated
-                #Make sure streak reset. Done with 'menu' prompt so it doesn't reset every new game
-                self.updateHighscore()
-                self.resetStreak()
-                return None
-
-            try:
-                self.validGuess(guess)
-            except (InvalidWordException, LengthWordException) as e:
-                print("Error:", e)
-                continue
-                #gets a new input and doesn't use 1 of 6 guesses
-
-            singleResult = self.singleCheck(guess)
-            #check
-            if singleResult == "win":
-                print(f"\n Correct!, {guess} is the correct word!")
-                return "win"
-            
-            rightSpot, wrongSpot = singleResult
-
-            for letter in guess:
-                if letter not in rightSpot and letter not in wrongSpot:
-                    alphabet.discard(letter)
-
-            for letter, index in rightSpot.items():
-                spaces[index] = letter
-
-            stringSpaces = " ".join(spaces)
-            print(f"\n{stringSpaces}\nWrong postions: {wrongSpot}")
-
-            spaces = ["__", "__", "__", "__", "__"]
-            
-            attempts += 1
-        #if while loop left, return lose
-        print(f"\n\nThe word was {self.solution}")
-        return "lose"
-    
-    #check guess with solution, returns True
-    #creates a list of right letters wrong spots
-    #creates dict of right letters right spots
-    def singleCheck(self, input):
-        if self.solution is None:
-            raise RuntimeError("Solution not generated befyre singleCheck()")
-        wrongSpot = []
-        rightSpot = {}
-
-        if input == self.solution:
+        if guess == self.solution:
             return "win"
 
-        # Track how many times each letter appears in the solution
+        result = [None] * 5
         solution_counts = {}
-        for i in range(len(self.solution)):
-            letter = self.solution[i]
-            solution_counts[letter] = solution_counts.get(letter, 0) + 1
+        for ch in self.solution:
+            solution_counts[ch] = solution_counts.get(ch, 0) + 1
 
-        # First pass: correct letter, correct spot
-        # Key = letter, value = index
-        for i in range(len(input)):
-            if input[i] == self.solution[i]:
-                rightSpot[input[i]] = i
-                solution_counts[input[i]] -= 1
+        # First pass: correct positions
+        for i in range(5):
+            if guess[i] == self.solution[i]:
+                result[i] = (guess[i], i, "correct")
+                solution_counts[guess[i]] -= 1
 
-        # Second pass: correct letter, wrong spot
-        for i in range(len(input)):
-            # skip letters already in the correct spot
-            if i in rightSpot.values():
+        # Second pass: present / absent
+        for i in range(5):
+            if result[i] is not None:
                 continue
+            ch = guess[i]
+            if ch in solution_counts and solution_counts[ch] > 0:
+                result[i] = (ch, i, "present")
+                solution_counts[ch] -= 1
+            else:
+                result[i] = (ch, i, "absent")
 
-            letter = input[i]
-            if letter in solution_counts and solution_counts[letter] > 0:
-                wrongSpot.append(letter)
-                solution_counts[letter] -= 1
-
-        return rightSpot, wrongSpot
-            
-            
-
-        
+        return result

@@ -1,109 +1,74 @@
-'''Creates dictionaries of all previous worlde answers
-    will remember how many have been solved'''
-from Wordle import *
-from datetime import date
+"""
+PreviousWordle.py
+Parses previous_wordle_answers.txt into a structured calendar.
+Provides lookup: (month, year) -> {day: answer}
+"""
+import os
+
 
 class PreviousWordle:
-    def __init__(self):
-        self.calendar = {}
+    MONTH_ORDER = [
+        "January", "February", "March", "April",
+        "May", "June", "July", "August",
+        "September", "October", "November", "December",
+    ]
 
-    #create dictionaries of dictionaries
-    def createCalendar(self):
-        with open("previous_wordle_answers.txt", "r") as f:
+    def __init__(self):
+        # calendar[(month, year_int)] = {day_int: "WORD"}
+        self.calendar: dict[tuple, dict[int, str]] = {}
+        self._load()
+
+    # ------------------------------------------------------------------
+    # Parsing
+    # ------------------------------------------------------------------
+
+    def _load(self):
+        base = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base, "previous_wordle_answers.txt")
+
+        with open(path, "r") as f:
             lines = f.read().splitlines()
 
-        # Skip header lines if present
         for line in lines:
-            # Skip empty lines or titles
+            line = line.strip()
             if not line or line.startswith("All") or line.startswith("Date"):
                 continue
 
-            # Split by whitespace
             parts = line.split()
+            if len(parts) < 5:
+                continue
 
-            month = parts[0]
-            day = int(parts[1].replace(",", ""))  # remove comma
-            year = parts[2]
-            number = parts[3] #probably unused
-            answer = parts[-1]
+            try:
+                month = parts[0]
+                day = int(parts[1].replace(",", ""))
+                year = int(parts[2])
+                answer = parts[-1].upper()
 
-            month_year = f"{month} {year}"
+                key = (month, year)
+                if key not in self.calendar:
+                    self.calendar[key] = {}
+                self.calendar[key][day] = answer
+            except (ValueError, IndexError):
+                continue
 
-            # Create month dict if it doesn't exist
-            if month_year not in self.calendar:
-                self.calendar[month_year] = {}
+    # ------------------------------------------------------------------
+    # Lookup helpers
+    # ------------------------------------------------------------------
 
-            # Store day → answer
-            self.calendar[month_year][day] = answer
+    def get_years(self) -> list[int]:
+        """Return sorted list of years with data (descending)."""
+        years = set(y for (_, y) in self.calendar)
+        return sorted(years, reverse=True)
 
-    #format days accurately
-    def printWordleMonth(self, month, year):
-        month_names = [
-            "January", "February", "March", "April",
-            "May", "June", "July", "August",
-            "September", "October", "November", "December"
-        ]
+    def get_months_for_year(self, year: int) -> list[str]:
+        """Return months (in calendar order) that have data for the given year."""
+        months = [m for (m, y) in self.calendar if y == year]
+        return sorted(months, key=lambda m: self.MONTH_ORDER.index(m))
 
-        month_index = month_names.index(month) + 1
-        month_year = f"{month} {year}"
+    def get_days(self, month: str, year: int) -> dict[int, str]:
+        """Return {day: answer} for the given month/year, or empty dict."""
+        return self.calendar.get((month, year), {})
 
-        if month_year not in self.calendar:
-            return "No Wordle data for this month.\n"
-
-        days_with_wordle = self.calendar[month_year]
-
-        result = ""
-        result += f"{month} {year}".center(20) + "\n"
-        result += "Su Mo Tu We Th Fr Sa\n"
-
-        first_day = date(year, month_index, 1)
-        start_day = (first_day.weekday() + 1) % 7  # Sunday = 0
-
-        result += "   " * start_day
-
-        for day in range(1, 32):
-            if day in days_with_wordle:
-                result += f"{day:2} "
-            else:
-                result += "   "
-
-            start_day += 1
-            if start_day % 7 == 0:
-                result += "\n"
-
-        result += "\n"
-        return result
-
-
-    #print all previous month with year
-    def __str__(self):
-        month_order = [
-            "January", "February", "March", "April",
-            "May", "June", "July", "August",
-            "September", "October", "November", "December"
-        ]
-
-        years = {}
-        for month_year in self.calendar:
-            month, year = month_year.split()
-            year = int(year)
-            years.setdefault(year, []).append(month)
-
-        result = "Previous Wordles\n\n"
-
-        for year in sorted(years.keys(), reverse=True):
-            result += f"{year}\n  "
-            months_sorted = sorted(
-                years[year],
-                key=lambda m: month_order.index(m),
-                reverse=True
-            )
-
-            for i, month in enumerate(months_sorted, 1):
-                result += f"{month:<10} "
-                if i % 4 == 0:
-                    result += "\n  "
-            result += "\n\n"
-
-        return result
-
+    def get_answer(self, month: str, year: int, day: int) -> str | None:
+        """Return the answer word for a specific date, or None."""
+        return self.calendar.get((month, year), {}).get(day)
